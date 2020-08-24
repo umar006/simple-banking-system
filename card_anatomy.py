@@ -69,7 +69,7 @@ def close():
     sys.exit()
 
 
-def hasTable(conn):
+def has_table(conn):
     cur = conn.cursor()
 
     cur.execute(
@@ -95,84 +95,119 @@ def sql_fetch(conn, card, pin):
 
     return cur.fetchone()
 
-def balance_card(conn, number):
+def balance_card(conn, card):
     cur = conn.cursor()
-    cur.execute('SELECT balance FROM card WHERE number=?', (number,))
+    cur.execute('SELECT balance FROM card WHERE number=?', (card,))
 
     return cur.fetchone()[0]
 
 
 def add_money(conn, card, money):
+    balance = balance_card(conn, card) + int(money)
+    
     cur = conn.cursor()
     cur.execute('''
                 UPDATE card
                 SET balance=?
-                WHERE number=?''', (money, card))
+                WHERE number=?''', (str(balance), card))
     conn.commit()
     
     
-def transer_money(conn, receiver):
+def transfer_money(conn, receiver, money):
+    balance = balance_card(conn, receiver) + int(money)
+    
     cur = conn.cursor()
-    cur.execute()
+    cur.execute('''
+                UPDATE card
+                SET balance=?
+                WHERE number=?''', (str(balance), receiver))
+    conn.commit()
+    
+    
+def is_exist(conn, receiver):
+    cur = conn.cursor()
+    cur.execute('SELECT number FROM card WHERE number=?', (receiver,))
+    
+    return cur.fetchone()[0]    # return 1 / 0
 
 
-while True:
-    conn = sqlite3.connect('card.s3db')
+def close_account(conn, card):
+    cur = conn.cursor()
+    cur.execute('DELETE FROM card WHERE number=?', (card,))
+    conn.commit()
+    
 
-    hasTable(conn)
-    main_display()
+def main():    
+    while True:
+        conn = sqlite3.connect('card.s3db')
 
-    choice = input()
-    if choice == '1':
-        new_card, new_pin = create_account(conn)
-        # print card and pin
-        print_new_account(new_card, new_pin)
-    elif choice == '2':
+        has_table(conn)
+        main_display()
 
-        print('')
-        card = input("Enter your card number:\n")
-        pin = input("Enter your PIN:\n")
-        print('')
+        choice = input()
+        if choice == '1':
+            new_card, new_pin = create_account(conn)
+            # print card and pin
+            print_new_account(new_card, new_pin)
+        elif choice == '2':
 
-        # get account
-        if (card, pin) == sql_fetch(conn, card, pin):
-            print('You have successfully logged in!\n')
+            print('')
+            card = input("Enter your card number:\n")
+            pin = input("Enter your PIN:\n")
+            print('')
 
-            while True:
-                main_menu()
+            # get account
+            if (card, pin) == sql_fetch(conn, card, pin):
+                print('You have successfully logged in!\n')
 
-                choice = input()
-                if choice == '1':
-                    # Check balance
-                    balance = balance_card(conn, card)
-                    print(f"\nBalance: {balance}\n")
-                elif choice == '2':
-                    # Deposit money
-                    deposit = input('\nEnter income:\n')
-                    add_money(conn, card, deposit)
-                    
-                    print('Income was added!\n')
-                elif choice == '3':
-                    # Transfer money
-                    # receiver = input('Transfer\nEnter card number:\n')
-                    # transer_money(conn, receiver)
-                    
-                    print('\nYou have successfully logged out!\n')
-                elif choice == '4':
-                    # Delete account
-                    print('\nYou have successfully logged out!\n')
-                elif choice == '5':
-                    print('\nYou have successfully logged out!\n')
-                    break
-                elif choice == '0':
-                    cur = conn.cursor()
-                    cur.execute('DELETE FROM card')
-                    conn.commit()
-                    close()
-        else:
-            print('Wrong card number or PIN!\n')
-    elif choice == '0':
-        cur = conn.cursor()
-        cur.execute('DELETE FROM card')
-        conn.commit()
-        close()
+                while True:
+                    main_menu()
+
+                    choice = input()
+                    if choice == '1':
+                        # Check balance
+                        balance = balance_card(conn, card)
+                        print(f"\nBalance: {balance}\n")
+                    elif choice == '2':
+                        # Deposit money
+                        deposit = input('\nEnter income:\n')
+                        add_money(conn, card, deposit)
+                        
+                        print('Income was added!\n')
+                    elif choice == '3':
+                        # Transfer money
+                        receiver = input('\nTransfer\nEnter card number:\n')
+                        
+                        check = luhn_algorithm(receiver)
+                        if check:
+                            if is_exist(conn, receiver):
+                                money = input('Enter how much money you want to transfer:\n')
+                                
+                                balance = balance_card(conn, card)
+                                if int(money) < balance:
+                                    transfer_money(conn, receiver, money)
+                                    print('Success!\n')
+                                else:
+                                    print('Not enough money!\n')
+                            else:
+                                print('Such a card does not exist.\n')
+                        else:
+                            print('Probably you made mistake in the card number. Please try again!\n')
+                    elif choice == '4':
+                        # Close account
+                        close_account(conn, card)
+                        print('\nThe account has been closed!\n')
+                        break
+                    elif choice == '5':
+                        print('\nYou have successfully logged out!\n')
+                        break
+                    elif choice == '0':
+                        close()
+            else:
+                print('Wrong card number or PIN!\n')
+        elif choice == '0':
+            close()
+
+
+if __name__ == "__main__":
+    main()

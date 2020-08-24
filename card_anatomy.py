@@ -61,9 +61,6 @@ def create_account(conn):
     ''', (card, pin))
     conn.commit()
 
-    cur.execute('select * from card')
-    print(cur.fetchall())
-
     return card, pin
 
 
@@ -98,11 +95,11 @@ def sql_fetch(conn, card, pin):
 
     return cur.fetchone()
 
-def balance_card(conn, card):
+def balance_card(conn, number):
     cur = conn.cursor()
-    cur.execute('SELECT balance FROM card WHERE number=?', card)
+    cur.execute('SELECT balance FROM card WHERE number=?', (number,))
 
-    return cur.fetchone()
+    return cur.fetchone()[0]
 
 
 def add_money(conn, card, money):
@@ -110,7 +107,7 @@ def add_money(conn, card, money):
     cur.execute('''
                 UPDATE card
                 SET balance=?
-                WHERE card=?''', (card, money))
+                WHERE number=?''', (money, card))
     conn.commit()
     
     
@@ -154,11 +151,11 @@ while True:
                     deposit = input('\nEnter income:\n')
                     add_money(conn, card, deposit)
                     
-                    print('Income was added!')
+                    print('Income was added!\n')
                 elif choice == '3':
                     # Transfer money
-                    receiver = input('Transfer\nEnter card number:\n')
-                    transer_money(conn, receiver)
+                    # receiver = input('Transfer\nEnter card number:\n')
+                    # transer_money(conn, receiver)
                     
                     print('\nYou have successfully logged out!\n')
                 elif choice == '4':
@@ -168,8 +165,14 @@ while True:
                     print('\nYou have successfully logged out!\n')
                     break
                 elif choice == '0':
+                    cur = conn.cursor()
+                    cur.execute('DELETE FROM card')
+                    conn.commit()
                     close()
         else:
             print('Wrong card number or PIN!\n')
     elif choice == '0':
+        cur = conn.cursor()
+        cur.execute('DELETE FROM card')
+        conn.commit()
         close()

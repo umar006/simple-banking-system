@@ -102,14 +102,12 @@ def balance_card(conn, card):
     return cur.fetchone()[0]
 
 
-def add_money(conn, card, money):
-    balance = balance_card(conn, card) + int(money)
-    
+def update_balance(conn, card, money):
     cur = conn.cursor()
     cur.execute('''
                 UPDATE card
                 SET balance=?
-                WHERE number=?''', (str(balance), card))
+                WHERE number=?''', (money, card))
     conn.commit()
     
     
@@ -128,7 +126,7 @@ def is_exist(conn, receiver):
     cur = conn.cursor()
     cur.execute('SELECT number FROM card WHERE number=?', (receiver,))
     
-    return cur.fetchone()[0]    # return 1 / 0
+    return cur.fetchone()    # return 1 / 0
 
 
 def close_account(conn, card):
@@ -171,7 +169,9 @@ def main():
                     elif choice == '2':
                         # Deposit money
                         deposit = input('\nEnter income:\n')
-                        add_money(conn, card, deposit)
+                        deposit = balance_card(conn, card) + int(deposit)
+                        
+                        update_balance(conn, card, deposit)
                         
                         print('Income was added!\n')
                     elif choice == '3':
@@ -186,6 +186,9 @@ def main():
                                 balance = balance_card(conn, card)
                                 if int(money) < balance:
                                     transfer_money(conn, receiver, money)
+                                    
+                                    money_sender = balance_card(conn, card) - int(money)
+                                    update_balance(conn, card, money_sender)
                                     print('Success!\n')
                                 else:
                                     print('Not enough money!\n')
